@@ -72,6 +72,24 @@ def _run_assessment(run_id, params):
     run_dir = os.path.join(RUNS_DIR, run_id)
     os.makedirs(run_dir, exist_ok=True)
 
+    # Fail fast with a plain-language message instead of a cryptic
+    # "file not found" from Popen: this is the actual root cause seen in
+    # testing - the tool needs PowerShell 7 ("pwsh"), and a machine that
+    # only has the older Windows PowerShell ("powershell.exe") fails the
+    # exact same way no matter which auth method is picked, because the
+    # failure happens before auth is even reached.
+    if shutil.which("pwsh") is None:
+        with _runs_lock:
+            _runs[run_id]["status"] = "error"
+            _runs[run_id]["error"] = (
+                "PowerShell 7 is not installed on this computer. This tool needs it - "
+                "the 'Windows PowerShell' that already comes with Windows is not enough. "
+                "Close this window, open Windows PowerShell, and run: "
+                "winget install Microsoft.PowerShell "
+                "Then restart the console and try again."
+            )
+        return
+
     cmd = [
         "pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass",
         "-File", WRAPPER_PATH,

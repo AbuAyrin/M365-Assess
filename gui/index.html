@@ -96,6 +96,7 @@
   <div class="card status-panel" id="statusCard">
     <h2>Progress</h2>
     <div class="status-label"><span class="spinner" id="spinner"></span><span id="statusText">Starting…</span></div>
+    <div class="error-box" id="runErrorBox"></div>
     <div class="sign-in-box" id="signInBox"></div>
     <div class="log" id="logBox"></div>
     <a href="#" class="report-btn" id="reportBtn" target="_blank">Open report</a>
@@ -224,7 +225,13 @@ function pollStatus(runId) {
       document.getElementById('statusText').textContent =
         d.status === 'running' ? 'Assessment running…' :
         d.status === 'complete' ? 'Complete' :
-        d.status === 'error' ? 'Something went wrong — see log below' : 'Starting…';
+        d.status === 'error' ? 'Something went wrong' : 'Starting…';
+
+      if (d.error) {
+        const errBox = document.getElementById('runErrorBox');
+        errBox.textContent = d.error;
+        errBox.classList.add('visible');
+      }
 
       const signInBox = document.getElementById('signInBox');
       if (d.signInPrompt) {
