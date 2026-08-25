@@ -36,7 +36,17 @@ param(
 $ErrorActionPreference = 'Stop'
 
 Write-Host "GUI_BRIDGE: importing M365-Assess module"
-Import-Module M365-Assess -Force -ErrorAction Stop
+# Prefer the copy sitting next to this script (the downloaded/forked
+# source, which has the branding fixes) over whatever else might be on
+# the module path - falls back to a plain by-name Import-Module only if
+# that local copy isn't there, e.g. someone only copied the gui/ folder
+# and separately ran Install-Module M365-Assess.
+$localManifest = Join-Path $PSScriptRoot '..\src\M365-Assess\M365-Assess.psd1'
+if (Test-Path -Path $localManifest -PathType Leaf) {
+    Import-Module $localManifest -Force -ErrorAction Stop
+} else {
+    Import-Module M365-Assess -Force -ErrorAction Stop
+}
 
 $assessParams = @{
     OutputFolder = $OutputFolder

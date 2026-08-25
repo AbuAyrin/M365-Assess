@@ -164,6 +164,18 @@ def save_branding():
     return jsonify(data)
 
 
+def _module_import_snippet():
+    """Same 'prefer the local copy next to this project, fall back to a
+    by-name lookup' logic as Run-Assessment.ps1 - kept in sync so /profiles
+    finds the same module Run-Assessment.ps1 will actually use."""
+    local_manifest = os.path.join(BASE_DIR, "..", "src", "M365-Assess", "M365-Assess.psd1")
+    escaped = local_manifest.replace("'", "''")
+    return (
+        f"if (Test-Path -LiteralPath '{escaped}') {{ Import-Module '{escaped}' -Force }} "
+        f"else {{ Import-Module M365-Assess -Force }}"
+    )
+
+
 @app.route("/profiles", methods=["GET"])
 def list_profiles():
     """Saved M365-Assess connection profiles (the tool's own multi-client
@@ -171,7 +183,7 @@ def list_profiles():
     try:
         result = subprocess.run(
             ["pwsh", "-NoProfile", "-Command",
-             "Import-Module M365-Assess -Force; Get-M365ConnectionProfile | ConvertTo-Json -Depth 5 -AsArray"],
+             f"{_module_import_snippet()}; Get-M365ConnectionProfile | ConvertTo-Json -Depth 5 -AsArray"],
             capture_output=True, text=True, timeout=30
         )
         if result.returncode != 0:
