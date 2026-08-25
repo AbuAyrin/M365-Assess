@@ -18,6 +18,11 @@ foreach ($f in $files) {
     Invoke-WebRequest -Uri "$base/$f" -OutFile (Join-Path $PSScriptRoot $f)
 }
 
+# A freshly downloaded file gets tagged by Windows as "from the internet",
+# same as if you'd downloaded it in a browser - without this, every update
+# would bring the "Blocked scripts cannot be loaded" error right back.
+Get-ChildItem -Path $PSScriptRoot -Filter "*.ps1" | Unblock-File -ErrorAction SilentlyContinue
+
 Write-Host ""
 Write-Host "Done. Every file is now the latest version." -ForegroundColor Green
 Write-Host "Close this window, close the console browser tab if it's open, then start the console again with Start-Console.bat." -ForegroundColor Green

@@ -27,6 +27,19 @@ if (Get-Command pwsh -ErrorAction SilentlyContinue) {
     exit 1
 }
 
+Write-Host ""
+Write-Host "Removing Windows internet locks from script files..." -ForegroundColor Cyan
+# Any file that came from a downloaded zip gets tagged by Windows as
+# "from the internet", and the M365-Assess module refuses to run at all
+# if it finds even one script still tagged that way (it fails with
+# "Blocked scripts cannot be loaded" instead of silently skipping them).
+# Doing it here means nobody hits that error the first time they run an
+# assessment - it's already handled before that point.
+$repoRoot = Join-Path $PSScriptRoot ".."
+$unblocked = Get-ChildItem -Path $repoRoot -Recurse -Filter "*.ps1" -ErrorAction SilentlyContinue
+$unblocked | Unblock-File -ErrorAction SilentlyContinue
+Write-Host "[OK] $($unblocked.Count) script file(s) checked" -ForegroundColor Green
+
 Write-Host "Installing GUI dependencies (Flask)..." -ForegroundColor Cyan
 & python -m pip install -r (Join-Path $PSScriptRoot "requirements.txt") --quiet
 
