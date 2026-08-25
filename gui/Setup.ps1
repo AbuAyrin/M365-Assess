@@ -3,7 +3,7 @@
     One-time setup for the M365-Assess Consultant Console. Run this once;
     use Start-Console.bat for every day after.
 #>
-Write-Host "M365-Assess Consultant Console — setup" -ForegroundColor Cyan
+Write-Host "M365-Assess Consultant Console - setup" -ForegroundColor Cyan
 Write-Host ""
 
 try {
