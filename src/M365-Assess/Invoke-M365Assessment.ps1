@@ -72,6 +72,12 @@
 .PARAMETER WhiteLabel
     Strips all M365-Assess and GitHub identity from the report (hides the GitHub
     link and open-source attribution in the React app).
+.PARAMETER CustomBranding
+    Hashtable from New-M365BrandingConfig — your company name, logo, accent/
+    primary colors, client name/logo, and footer/disclaimer text. Applied to
+    the HTML report's header, cover page, and footer. Independent of
+    -WhiteLabel: WhiteLabel only hides M365-Assess's own attribution, this
+    controls what replaces it.
 .PARAMETER CompactReport
     Omit cover page, executive summary, and compliance overview from the HTML
     report. Produces a lean, findings-focused report. Automatically set by
@@ -280,6 +286,9 @@ param(
 
     [Parameter()]
     [switch]$WhiteLabel,
+
+    [Parameter()]
+    [hashtable]$CustomBranding,
 
     [Parameter()]
     [switch]$CompactReport,
@@ -1453,6 +1462,7 @@ if (Test-Path -Path $reportScriptPath) {
         $reportParams['ReportTheme']   = $ReportTheme
         $reportParams['ReportDensity'] = $ReportDensity
         if ($WhiteLabel)        { $reportParams['WhiteLabel']        = $true }
+        if ($CustomBranding -and $CustomBranding.Count -gt 0) { $reportParams['CustomBranding'] = $CustomBranding }
         if ($CompactReport)     { $reportParams['CompactReport']     = $true }
         if ($OpenReport)        { $reportParams['OpenReport']        = $true }
         if ($QuickScan)         { $reportParams['QuickScan']         = $true }

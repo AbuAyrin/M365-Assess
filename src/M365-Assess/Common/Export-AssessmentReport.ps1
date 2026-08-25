@@ -22,6 +22,10 @@
     to dark mode; Saas defaults to light mode; HighContrast defaults to dark mode.
 .PARAMETER WhiteLabel
     Hides M365-Assess GitHub link and Galvnyz attribution from the report footer.
+.PARAMETER CustomBranding
+    Hashtable from New-M365BrandingConfig — company name, logo, accent/primary
+    colors, client name/logo, footer/disclaimer text. Embedded into the report's
+    header, cover page, and footer.
 .PARAMETER OpenReport
     Automatically opens the generated HTML report in the default browser.
 .PARAMETER QuickScan
@@ -65,6 +69,9 @@ param(
 
     [Parameter()]
     [switch]$WhiteLabel,
+
+    [Parameter()]
+    [hashtable]$CustomBranding,
 
     [Parameter()]
     [switch]$CompactReport,
@@ -207,6 +214,7 @@ $reportJsonParams = @{
     SectionData        = $sectionData
     RegistryData       = $controlRegistry
     WhiteLabel         = $WhiteLabel
+    CustomBranding     = if ($CustomBranding) { $CustomBranding } else { @{} }
     XlsxFileName       = $xlsxName
     FrameworkDefs      = $allFrameworks
     CmmcHandoff        = $cmmcHandoff

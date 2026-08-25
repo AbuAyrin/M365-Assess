@@ -16,6 +16,37 @@ const SCORE = D.score[0] || {};
 const MFA_STATS = D.mfaStats;
 const FINDINGS = D.findings;
 const DOMAIN_STATS = D.domainStats;
+const BRANDING = D.branding || {};
+
+// Derives the full --accent-* family (hover/text/soft/border/ring/grad) from
+// a single brand hex color. Each theme in report-themes.css hardcodes its
+// own values for all of these rather than deriving them from --accent, so
+// setting --accent alone would leave text/soft/border/ring stuck on the
+// theme's original color - this reproduces the same shape from one input.
+function deriveAccentPalette(hex, primaryHex) {
+  const clean = (hex || '').replace('#', '');
+  const full = clean.length === 3 ? clean.split('').map(c => c + c).join('') : clean;
+  if (!/^[0-9a-fA-F]{6}$/.test(full)) return null;
+  const r = parseInt(full.slice(0, 2), 16),
+    g = parseInt(full.slice(2, 4), 16),
+    b = parseInt(full.slice(4, 6), 16);
+  const rgba = a => `rgba(${r}, ${g}, ${b}, ${a})`;
+  const shade = amt => {
+    // amt negative = darken, positive = lighten
+    const f = c => Math.max(0, Math.min(255, Math.round(c + (amt < 0 ? c * amt : (255 - c) * amt))));
+    return `#${[f(r), f(g), f(b)].map(v => v.toString(16).padStart(2, '0')).join('')}`;
+  };
+  const grad2 = primaryHex && /^#[0-9a-fA-F]{6}$/.test(primaryHex) ? primaryHex : shade(-0.35);
+  return {
+    '--accent': `#${full}`,
+    '--accent-hover': shade(-0.15),
+    '--accent-text': shade(-0.1),
+    '--accent-soft': rgba(0.14),
+    '--accent-border': rgba(0.35),
+    '--accent-ring': rgba(0.25),
+    '--accent-grad': `linear-gradient(135deg, #${full} 0%, ${grad2} 100%)`
+  };
+}
 const LS = key => `${key}-${TENANT.TenantId || 'anon'}`;
 const RO = window.REPORT_OVERRIDES || null;
 function finalizeReport({
@@ -499,13 +530,23 @@ function Sidebar({
     className: 'sidebar' + (navOpen ? ' open' : '')
   }, /*#__PURE__*/React.createElement("div", {
     className: "brand"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, BRANDING.logoDataUri ? /*#__PURE__*/React.createElement("img", {
+    src: BRANDING.logoDataUri,
+    alt: BRANDING.companyName || 'Company logo',
+    style: {
+      width: 32,
+      height: 32,
+      objectFit: 'contain',
+      borderRadius: 6,
+      flexShrink: 0
+    }
+  }) : /*#__PURE__*/React.createElement("div", {
     className: "brand-mark"
   }, "M"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "brand-name"
-  }, "M365 Assess"), /*#__PURE__*/React.createElement("div", {
+  }, BRANDING.companyName || 'M365 Assess'), /*#__PURE__*/React.createElement("div", {
     className: "brand-sub"
-  }, "Security Report")), /*#__PURE__*/React.createElement("button", {
+  }, BRANDING.sidebarSubtitle || 'Security Report')), /*#__PURE__*/React.createElement("button", {
     className: "sidebar-close",
     onClick: onClose,
     "aria-label": "Close navigation"
@@ -1252,13 +1293,36 @@ function Briefing({
     className: "briefing-header"
   }, /*#__PURE__*/React.createElement("span", {
     className: "briefing-header-org"
-  }, TENANT.OrgDisplayName || 'Microsoft 365 tenant'), /*#__PURE__*/React.createElement("span", {
+  }, BRANDING.clientName || TENANT.OrgDisplayName || 'Microsoft 365 tenant'), /*#__PURE__*/React.createElement("span", {
     className: "briefing-header-meta"
   }, assessedOk ? `Assessed ${assessedDate.toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
-  })} · ` : '', FINDINGS.length, " settings checked")), /*#__PURE__*/React.createElement(HideableBlock, {
+  })} · ` : '', FINDINGS.length, " settings checked")), (BRANDING.companyName || BRANDING.clientLogoDataUri || BRANDING.reportNote) && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      marginTop: -6,
+      marginBottom: 16,
+      fontSize: 12,
+      color: 'var(--muted)',
+      fontFamily: 'var(--font-mono)',
+      flexWrap: 'wrap'
+    }
+  }, BRANDING.clientLogoDataUri && /*#__PURE__*/React.createElement("img", {
+    src: BRANDING.clientLogoDataUri,
+    alt: BRANDING.clientName || 'Client logo',
+    style: {
+      height: 20,
+      objectFit: 'contain'
+    }
+  }), BRANDING.companyName && /*#__PURE__*/React.createElement("span", null, "Prepared by ", BRANDING.companyName), BRANDING.reportNote && /*#__PURE__*/React.createElement("span", {
+    style: {
+      opacity: 0.85
+    }
+  }, BRANDING.companyName ? '· ' : '', BRANDING.reportNote)), /*#__PURE__*/React.createElement(HideableBlock, {
     hideKey: "briefing-verdict",
     label: "Briefing verdict card"
   }, /*#__PURE__*/React.createElement(BriefingVerdictCard, {
@@ -6382,6 +6446,24 @@ function App() {
     localStorage.setItem('m365-density', density);
     localStorage.setItem('m365-text-scale', textScale);
   }, [theme, mode, density, textScale]);
+
+  // Branding: applied once on mount, independent of theme switching (inline
+  // styles on <html> beat any stylesheet rule, including the [data-theme=…]
+  // selectors report-themes.css uses, so this survives the user changing
+  // theme/mode from the report's own Tweaks panel).
+  useEffect(() => {
+    if (BRANDING.accentColor) {
+      const palette = deriveAccentPalette(BRANDING.accentColor, BRANDING.primaryColor);
+      if (palette) {
+        Object.entries(palette).forEach(([prop, val]) => {
+          document.documentElement.style.setProperty(prop, val);
+        });
+      }
+    }
+    if (BRANDING.reportTitle) {
+      document.title = BRANDING.reportTitle;
+    }
+  }, []);
   useEffect(() => {
     try {
       localStorage.setItem(FILTER_KEY, JSON.stringify(filters));
@@ -6660,6 +6742,36 @@ function App() {
     className: 'edit-mode-toggle' + (editMode ? ' active' : ''),
     onClick: () => setEditMode(e => !e),
     title: "Toggle edit mode"
+  }, "✎")), (BRANDING.footerText || BRANDING.disclaimer) && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      padding: '8px 20px 20px',
+      fontSize: 11,
+      color: 'var(--muted)',
+      fontFamily: 'var(--font-mono)',
+      lineHeight: 1.6
+    }
+  }, BRANDING.footerText && (BRANDING.footerUrl ? /*#__PURE__*/React.createElement("a", {
+    href: BRANDING.footerUrl,
+    target: "_blank",
+    rel: "noreferrer",
+    style: {
+      color: 'inherit',
+      textDecoration: 'underline',
+      textUnderlineOffset: 3
+    }
+  }, BRANDING.footerText) : /*#__PURE__*/React.createElement("span", null, BRANDING.footerText)), BRANDING.disclaimer && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 4,
+      opacity: 0.75
+    }
+  }, BRANDING.disclaimer), D.whiteLabel && /*#__PURE__*/React.createElement("button", {
+    className: 'edit-mode-toggle' + (editMode ? ' active' : ''),
+    onClick: () => setEditMode(e => !e),
+    title: "Toggle edit mode",
+    style: {
+      marginLeft: 12
+    }
   }, "✎"))), showTweaks && /*#__PURE__*/React.createElement(TweaksPanel, {
     onClose: () => setShowTweaks(false),
     theme: theme,

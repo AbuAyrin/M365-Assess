@@ -3,11 +3,12 @@ function New-M365BrandingConfig {
     .SYNOPSIS
         Creates a validated branding hashtable for use with -CustomBranding.
     .DESCRIPTION
-        Returns a validated branding hashtable. Intended for use with the
-        M365-Assess-Mods private report engine; -CustomBranding is not a
-        parameter on the public Invoke-M365Assessment or Export-AssessmentReport
-        cmdlets. Logo paths are validated at call time; hex colors are validated
-        for correct format.
+        Returns a validated branding hashtable for the -CustomBranding parameter
+        on Invoke-M365Assessment and Export-AssessmentReport. Applied to the
+        HTML report's sidebar (logo/company name/subtitle), accent/primary
+        colors, cover page (client name/logo, prepared-by line, report note),
+        and footer (custom text/link, disclaimer). Logo paths are validated at
+        call time; hex colors are validated for correct format.
     .PARAMETER CompanyName
         Your company name, shown in the report header and footer.
     .PARAMETER LogoPath

@@ -119,7 +119,13 @@ function Build-ReportDataJson {
         [string[]]$HeadlineFrameworks = @(),
 
         [Parameter()]
-        [string]$AssessedAt = ''
+        [string]$AssessedAt = '',
+
+        # Hashtable from New-M365BrandingConfig. Independent of -WhiteLabel:
+        # WhiteLabel only hides M365-Assess's own attribution, this is what
+        # replaces it. See Get-BrandingReportData below for field handling.
+        [Parameter()]
+        [hashtable]$CustomBranding = @{}
     )
 
     # ------------------------------------------------------------------
@@ -442,6 +448,47 @@ function Build-ReportDataJson {
             @{ N = 'tenantAgeYears'; E = { $ageYears } }
     })
 
+    # ------------------------------------------------------------------
+    # Branding — from -CustomBranding (New-M365BrandingConfig). Logos are
+    # embedded as base64 data URIs so the report stays a single
+    # self-contained file, same as every other asset in it.
+    # ------------------------------------------------------------------
+    function ConvertTo-BrandingLogoDataUri {
+        param([string]$Path)
+        if (-not $Path -or -not (Test-Path -Path $Path -PathType Leaf)) { return $null }
+        try {
+            $bytes = [System.IO.File]::ReadAllBytes($Path)
+            $ext   = [System.IO.Path]::GetExtension($Path).TrimStart('.').ToLower()
+            $mime  = switch ($ext) {
+                'jpg'  { 'image/jpeg' }
+                'jpeg' { 'image/jpeg' }
+                'svg'  { 'image/svg+xml' }
+                default { 'image/png' }
+            }
+            return "data:$mime;base64,$([Convert]::ToBase64String($bytes))"
+        } catch {
+            Write-Warning "Could not read branding logo at '$Path': $($_.Exception.Message)"
+            return $null
+        }
+    }
+
+    $brandingData = [ordered]@{
+        companyName     = if ($CustomBranding.ContainsKey('CompanyName'))     { $CustomBranding.CompanyName }     else { $null }
+        logoDataUri     = ConvertTo-BrandingLogoDataUri -Path $CustomBranding['LogoPath']
+        clientLogoDataUri = ConvertTo-BrandingLogoDataUri -Path $CustomBranding['ClientLogoPath']
+        clientName      = if ($CustomBranding.ContainsKey('ClientName'))      { $CustomBranding.ClientName }      else { $null }
+        accentColor     = if ($CustomBranding.ContainsKey('AccentColor'))     { $CustomBranding.AccentColor }     else { $null }
+        primaryColor    = if ($CustomBranding.ContainsKey('PrimaryColor'))    { $CustomBranding.PrimaryColor }    else { $null }
+        reportTitle     = if ($CustomBranding.ContainsKey('ReportTitle'))     { $CustomBranding.ReportTitle }     else { $null }
+        sidebarSubtitle = if ($CustomBranding.ContainsKey('SidebarSubtitle')) { $CustomBranding.SidebarSubtitle } else { $null }
+        reportNote      = if ($CustomBranding.ContainsKey('ReportNote'))      { $CustomBranding.ReportNote }      else { $null }
+        disclaimer      = if ($CustomBranding.ContainsKey('Disclaimer'))      { $CustomBranding.Disclaimer }      else { $null }
+        footerText      = if ($CustomBranding.ContainsKey('FooterText'))      { $CustomBranding.FooterText }
+                           elseif ($CustomBranding.ContainsKey('CompanyName')) { "Assessment by $($CustomBranding.CompanyName)" }
+                           else { $null }
+        footerUrl       = if ($CustomBranding.ContainsKey('FooterUrl'))       { $CustomBranding.FooterUrl }       else { $null }
+    }
+
     $reportData = [ordered]@{
         tenant         = @($tenantRows)
         users          = @($usersRows  | Select-Object TotalUsers, Licensed, GuestUsers, SyncedFromOnPrem, DisabledUsers, NeverSignedIn, StaleMember)
@@ -456,6 +503,7 @@ function Build-ReportDataJson {
         'admin-roles'  = @($adminRoleRows | Select-Object RoleName, MemberDisplayName)
         summary        = @($findings | Group-Object -Property Section | ForEach-Object { [ordered]@{ Section = $_.Name; Items = $_.Count } })
         whiteLabel     = [bool]$WhiteLabel
+        branding       = $brandingData
         xlsxFileName   = $XlsxFileName
         mailboxSummary = if ($mbxMap.Count) { $mbxMap } else { $null }
         mailflowStats  = if ($mfRows.Count) { $mailflowStats } else { $null }

@@ -46,6 +46,7 @@
         'Get-M365PowerBISecurityConfig'
         'Get-M365PurviewRetentionConfig'
         'Grant-M365AssessConsent'
+        'New-M365BrandingConfig'
         'New-M365ConnectionProfile'
         'Set-M365ConnectionProfile'
         'Remove-M365ConnectionProfile'

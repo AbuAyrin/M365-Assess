@@ -9,6 +9,7 @@ Get-ChildItem -Path "$PSScriptRoot\Orchestrator\*.ps1" | ForEach-Object { . $_.F
 . "$PSScriptRoot\Common\Resolve-DnsRecord.ps1"
 . "$PSScriptRoot\Common\Resolve-TenantIdentity.ps1"
 . "$PSScriptRoot\Common\Export-M365Remediation.ps1"
+. "$PSScriptRoot\Common\New-M365BrandingConfig.ps1"
 . "$PSScriptRoot\Orchestrator\Compare-M365Baseline.ps1"
 # Dot-source the main orchestrator to import Invoke-M365Assessment function
 . $PSScriptRoot\Invoke-M365Assessment.ps1
