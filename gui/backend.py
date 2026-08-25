@@ -131,6 +131,7 @@ def _run_assessment(run_id, params):
             _runs[run_id]["pid"] = proc.pid
 
         result_folder = None
+        report_found = False
         for raw_line in proc.stdout:
             line = raw_line.rstrip("\n")
             with _runs_lock:
@@ -147,20 +148,38 @@ def _run_assessment(run_id, params):
                     _runs[run_id]["signInPrompt"] = line.strip()
 
             m = re.search(r"GUI_BRIDGE: RESULT_FOLDER=(.+)$", line)
-            if m:
+            if m and not report_found:
                 result_folder = m.group(1).strip()
+                with _runs_lock:
+                    _runs[run_id]["resultFolder"] = result_folder
+                # Look for the report as soon as we know where it is, rather
+                # than waiting for pwsh to fully exit. Confirmed by direct
+                # repro: an Exchange Online sign-in in particular can leave
+                # the process alive doing cleanup well after all real work -
+                # including writing the report - is done, which otherwise
+                # leaves the page stuck on "running" forever even though the
+                # report already exists on disk.
+                if os.path.isdir(result_folder):
+                    report_candidates = glob.glob(os.path.join(result_folder, "*.html"))
+                    if report_candidates:
+                        report_found = True
+                        with _runs_lock:
+                            _runs[run_id]["reportPath"] = report_candidates[0]
+                            _runs[run_id]["status"] = "complete"
 
         returncode = proc.wait()
 
         with _runs_lock:
-            _runs[run_id]["status"] = "complete" if returncode == 0 else "error"
             _runs[run_id]["returncode"] = returncode
-            _runs[run_id]["resultFolder"] = result_folder
-
-        if result_folder and os.path.isdir(result_folder):
-            report_candidates = glob.glob(os.path.join(result_folder, "*.html"))
-            with _runs_lock:
-                _runs[run_id]["reportPath"] = report_candidates[0] if report_candidates else None
+            # A run that already produced a report stays "complete" even if
+            # something during cleanup after that point exits non-zero -
+            # the report itself is real and finished regardless.
+            if not report_found:
+                _runs[run_id]["status"] = "complete" if returncode == 0 else "error"
+                _runs[run_id]["resultFolder"] = result_folder
+                if result_folder and os.path.isdir(result_folder):
+                    report_candidates = glob.glob(os.path.join(result_folder, "*.html"))
+                    _runs[run_id]["reportPath"] = report_candidates[0] if report_candidates else None
 
     except Exception as e:
         with _runs_lock:
