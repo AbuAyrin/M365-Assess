@@ -68,3 +68,10 @@ npm-debug.log*
 *.suo
 *.user
 .superpowers/
+
+# Consultant GUI (gui/) - runtime artifacts, not source
+gui/__pycache__/
+gui/runs/*
+!gui/runs/.gitkeep
+__pycache__/
+*.pyc

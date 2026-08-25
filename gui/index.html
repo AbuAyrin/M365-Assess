@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>M365 Assess — Consultant Console</title>
+<style>
+  :root {
+    --bg: #0b0d12; --bg2: #12151c; --bg3: #191d26; --border: #262b36;
+    --text: #e8eaed; --muted: #8a92a3; --accent: #2563eb; --accent2: #0ea5e9;
+    --success: #22c55e; --danger: #ef4444; --mono: 'SF Mono', Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, Segoe UI, sans-serif; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 32px 24px 80px; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+  header img { width: 32px; height: 32px; object-fit: contain; border-radius: 6px; display: none; }
+  header h1 { font-size: 18px; margin: 0; }
+  header .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 14px; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  .field input[type=text], .field select { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 9px 10px; color: var(--text); font-size: 13px; }
+  .field input[type=text]:focus, .field select:focus { outline: none; border-color: var(--accent); }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .toggle { display: flex; gap: 8px; margin-bottom: 14px; }
+  .toggle button { flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg3); color: var(--muted); cursor: pointer; font-size: 12px; }
+  .toggle button.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .sections { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px; }
+  .sections label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text); cursor: pointer; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin-top: 8px; }
+  .checkbox-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .checkbox-row label { font-size: 12px; color: var(--muted); }
+  .run-btn { width: 100%; padding: 13px; border-radius: 8px; border: none; background: linear-gradient(90deg, var(--accent), var(--accent2)); color: white; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .run-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .status-panel { display: none; }
+  .status-panel.visible { display: block; }
+  .status-label { font-size: 13px; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .spinner { width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .sign-in-box { background: rgba(37,99,235,.1); border: 1px solid var(--accent); border-radius: 8px; padding: 14px; margin-bottom: 14px; font-family: var(--mono); font-size: 12px; word-break: break-word; display: none; }
+  .sign-in-box.visible { display: block; }
+  .log { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-family: var(--mono); font-size: 11px; color: var(--muted); max-height: 180px; overflow-y: auto; white-space: pre-wrap; }
+  .report-btn { display: none; width: 100%; padding: 13px; border-radius: 8px; border: none; background: var(--success); color: white; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 12px; text-align: center; text-decoration: none; }
+  .report-btn.visible { display: block; }
+  .error-box { display: none; background: rgba(239,68,68,.1); border: 1px solid var(--danger); border-radius: 8px; padding: 12px; font-size: 12px; color: var(--danger); margin-bottom: 14px; }
+  .error-box.visible { display: block; }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img id="brandLogo" alt="">
+    <div>
+      <h1 id="brandName">M365 Assess</h1>
+      <div class="sub">Consultant Console</div>
+    </div>
+  </header>
+
+  <div class="card" id="setupCard">
+    <h2>Client</h2>
+    <div class="field" id="profilePickerField" style="display:none">
+      <label>Saved client</label>
+      <select id="profileSelect"></select>
+    </div>
+    <div class="field">
+      <label>Tenant ID or domain <span id="orNewLabel"></span></label>
+      <input type="text" id="tenantId" placeholder="client.onmicrosoft.com">
+    </div>
+
+    <h2 style="margin-top:18px">Sign-in method</h2>
+    <div class="toggle">
+      <button data-auth="AppReg" class="active">App registration</button>
+      <button data-auth="DeviceCode">Device code</button>
+      <button data-auth="Interactive">Interactive</button>
+    </div>
+    <div id="authFields"></div>
+    <div class="hint" id="authHint"></div>
+
+    <h2 style="margin-top:18px">Sections</h2>
+    <div class="sections" id="sectionsGrid"></div>
+    <details><summary>More sections</summary><div class="sections" id="optionalSectionsGrid" style="margin-top:8px"></div></details>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="whiteLabel">
+      <label for="whiteLabel">Hide M365-Assess attribution (show only my branding)</label>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+
+    <button class="run-btn" id="runBtn" style="margin-top:18px">Run assessment</button>
+  </div>
+
+  <div class="card status-panel" id="statusCard">
+    <h2>Progress</h2>
+    <div class="status-label"><span class="spinner" id="spinner"></span><span id="statusText">Starting…</span></div>
+    <div class="sign-in-box" id="signInBox"></div>
+    <div class="log" id="logBox"></div>
+    <a href="#" class="report-btn" id="reportBtn" target="_blank">Open report</a>
+  </div>
+</div>
+
+<script>
+const BACKEND = 'http://localhost:5050';
+let currentAuth = 'AppReg';
+let pollTimer = null;
+
+const AUTH_FIELDS = {
+  AppReg: `
+    <div class="row">
+      <div class="field"><label>Client ID</label><input type="text" id="clientId"></div>
+      <div class="field"><label>Certificate thumbprint</label><input type="text" id="certThumb"></div>
+    </div>`,
+  DeviceCode: ``,
+  Interactive: `
+    <div class="field"><label>Sign in as (optional)</label><input type="text" id="upn" placeholder="admin@client.onmicrosoft.com"></div>`,
+};
+const AUTH_HINTS = {
+  AppReg: 'Fully unattended — no sign-in prompt at all. Requires a one-time Grant-M365AssessConsent setup by the client’s admin. Most reliable through this console.',
+  DeviceCode: 'The client’s admin enters a code on their own device — a short live moment, no client credentials touch your machine. Note: this auth path has a known compatibility issue when run through this console rather than a direct terminal — try it, but App registration is the safer default here.',
+  Interactive: 'A browser sign-in window will open on this machine — the client’s admin (or you, with a guest role) signs in directly. Not appropriate to use with the client watching your screen unless it’s their own credentials they’re comfortable entering on your machine.',
+};
+
+function setAuth(method) {
+  currentAuth = method;
+  document.querySelectorAll('.toggle button').forEach(b => b.classList.toggle('active', b.dataset.auth === method));
+  document.getElementById('authFields').innerHTML = AUTH_FIELDS[method];
+  document.getElementById('authHint').textContent = AUTH_HINTS[method];
+}
+document.querySelectorAll('.toggle button').forEach(b => b.addEventListener('click', () => setAuth(b.dataset.auth)));
+setAuth('AppReg');
+
+async function loadBranding() {
+  try {
+    const r = await fetch(`${BACKEND}/branding`);
+    const b = await r.json();
+    if (b.CompanyName && b.CompanyName !== 'Your Company Name') {
+      document.getElementById('brandName').textContent = b.CompanyName;
+    }
+    if (b.LogoPath) { /* server-side path, not directly browsable - left as a follow-up */ }
+    if (b.AccentColor) {
+      document.documentElement.style.setProperty('--accent', b.AccentColor);
+    }
+  } catch (e) {}
+}
+
+async function loadProfiles() {
+  try {
+    const r = await fetch(`${BACKEND}/profiles`);
+    const d = await r.json();
+    const profiles = d.profiles || [];
+    if (profiles.length === 0) return;
+    document.getElementById('profilePickerField').style.display = 'block';
+    document.getElementById('orNewLabel').textContent = '(or pick a saved client above)';
+    const sel = document.getElementById('profileSelect');
+    sel.innerHTML = '<option value="">— New client —</option>' +
+      profiles.map(p => `<option value="${p.name || p.ProfileName || ''}">${p.name || p.ProfileName || 'Unnamed'} (${p.tenantId || p.TenantId || ''})</option>`).join('');
+  } catch (e) {}
+}
+
+async function loadSections() {
+  try {
+    const r = await fetch(`${BACKEND}/sections`);
+    const d = await r.json();
+    const build = (list) => list.map(s => `<label><input type="checkbox" value="${s}" checked> ${s}</label>`).join('');
+    document.getElementById('sectionsGrid').innerHTML = build(d.default || []);
+    document.getElementById('optionalSectionsGrid').innerHTML = (d.optional || [])
+      .map(s => `<label><input type="checkbox" value="${s}"> ${s}</label>`).join('');
+  } catch (e) {}
+}
+
+function getCheckedSections() {
+  return [...document.querySelectorAll('.sections input:checked')].map(i => i.value);
+}
+
+document.getElementById('runBtn').addEventListener('click', async () => {
+  const errBox = document.getElementById('errorBox');
+  errBox.classList.remove('visible');
+
+  const params = {
+    authMethod: currentAuth,
+    tenantId: document.getElementById('tenantId').value.trim(),
+    connectionProfile: (document.getElementById('profileSelect') || {}).value || '',
+    sections: getCheckedSections(),
+    whiteLabel: document.getElementById('whiteLabel').checked,
+  };
+  if (currentAuth === 'AppReg') {
+    params.clientId = (document.getElementById('clientId') || {}).value || '';
+    params.certificateThumbprint = (document.getElementById('certThumb') || {}).value || '';
+  }
+  if (currentAuth === 'Interactive') {
+    params.userPrincipalName = (document.getElementById('upn') || {}).value || '';
+  }
+  if (!params.tenantId && !params.connectionProfile) {
+    errBox.textContent = 'Enter a tenant ID or pick a saved client.';
+    errBox.classList.add('visible');
+    return;
+  }
+
+  document.getElementById('setupCard').style.display = 'none';
+  document.getElementById('statusCard').classList.add('visible');
+
+  const r = await fetch(`${BACKEND}/run`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params)
+  });
+  const d = await r.json();
+  if (!r.ok) {
+    document.getElementById('statusText').textContent = 'Could not start: ' + (d.error || 'unknown error');
+    document.getElementById('spinner').style.display = 'none';
+    return;
+  }
+  pollStatus(d.runId);
+});
+
+function pollStatus(runId) {
+  pollTimer = setInterval(async () => {
+    try {
+      const r = await fetch(`${BACKEND}/run/${runId}/status`);
+      const d = await r.json();
+
+      document.getElementById('statusText').textContent =
+        d.status === 'running' ? 'Assessment running…' :
+        d.status === 'complete' ? 'Complete' :
+        d.status === 'error' ? 'Something went wrong — see log below' : 'Starting…';
+
+      const signInBox = document.getElementById('signInBox');
+      if (d.signInPrompt) {
+        signInBox.textContent = d.signInPrompt;
+        signInBox.classList.add('visible');
+      }
+
+      document.getElementById('logBox').textContent = (d.recentLog || []).join('\n');
+      document.getElementById('logBox').scrollTop = document.getElementById('logBox').scrollHeight;
+
+      if (d.reportReady) {
+        const btn = document.getElementById('reportBtn');
+        btn.href = `${BACKEND}/run/${runId}/report`;
+        btn.classList.add('visible');
+      }
+
+      if (d.status === 'complete' || d.status === 'error') {
+        document.getElementById('spinner').style.display = 'none';
+        clearInterval(pollTimer);
+      }
+    } catch (e) {}
+  }, 1500);
+}
+
+loadBranding();
+loadProfiles();
+loadSections();
+</script>
+</body>
+</html>
