@@ -27,7 +27,15 @@ param(
     [Parameter()] [string]$ClientId = '',
     [Parameter()] [string]$CertificateThumbprint = '',
     [Parameter()] [string]$UserPrincipalName = '',
-    [Parameter()] [string[]]$Section = @(),
+    # Comma-joined string, not string[]: when this script is launched via
+    # "-File" from an external process (as the GUI backend does), PowerShell's
+    # -File argument binding does NOT slurp multiple space-separated tokens
+    # into an array parameter the way normal in-session calls do - it binds
+    # only the first token, then scatters every value after it across
+    # whatever OTHER positional parameters happen to still be free, erroring
+    # once those run out. Confirmed by direct repro, not assumed. Taking one
+    # already-comma-joined string sidesteps that entirely; split below.
+    [Parameter()] [string]$Section = '',
     [Parameter()] [switch]$WhiteLabel,
     [Parameter()] [string]$BrandingJsonPath = '',
     [Parameter()] [string]$ReportTheme = 'Neon'
@@ -53,7 +61,12 @@ $assessParams = @{
     ReportTheme  = $ReportTheme
 }
 if ($TenantId)    { $assessParams['TenantId'] = $TenantId }
-if ($Section.Count -gt 0) { $assessParams['Section'] = $Section }
+if ($Section) {
+    # Invoke-M365Assessment's real -Section parameter is [string[]] - split
+    # back into an array here, right before the one call that needs it.
+    $sectionList = @($Section -split ',' | Where-Object { $_ })
+    if ($sectionList.Count -gt 0) { $assessParams['Section'] = $sectionList }
+}
 if ($WhiteLabel)  { $assessParams['WhiteLabel'] = $true }
 
 switch ($AuthMethod) {

@@ -108,7 +108,12 @@ def _run_assessment(run_id, params):
     if params.get("userPrincipalName"):
         cmd += ["-UserPrincipalName", params["userPrincipalName"]]
     if params.get("sections"):
-        cmd += ["-Section"] + params["sections"]
+        # One comma-joined argument, not "-Section" + [list]: -File argument
+        # binding only takes the first token after -Section, then scatters
+        # the rest across whichever other parameters are still unbound -
+        # confirmed by direct repro. Run-Assessment.ps1 splits this back
+        # into a list itself.
+        cmd += ["-Section", ",".join(params["sections"])]
     if params.get("whiteLabel"):
         cmd += ["-WhiteLabel"]
     if os.path.exists(BRANDING_PATH):
