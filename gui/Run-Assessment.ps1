@@ -44,6 +44,23 @@ param(
 $ErrorActionPreference = 'Stop'
 
 Write-Host "GUI_BRIDGE: importing M365-Assess module"
+# Load the Graph sub-modules M365-Assess.psd1 lists under RequiredModules
+# by hand first. PowerShell is supposed to auto-load these on its own
+# when importing the manifest, but that auto-load isn't reliable when the
+# manifest is imported by full file path (as below) rather than by name
+# from the module path - seen live as "The required module
+# 'Microsoft.Graph.Authentication' is not loaded" even though the module
+# is genuinely installed. Loading each one explicitly first sidesteps
+# that rather than depending on the auto-load working.
+foreach ($graphModule in @(
+    'Microsoft.Graph.Authentication', 'Microsoft.Graph.Applications',
+    'Microsoft.Graph.DeviceManagement', 'Microsoft.Graph.Identity.DirectoryManagement',
+    'Microsoft.Graph.Identity.SignIns', 'Microsoft.Graph.Reports',
+    'Microsoft.Graph.Security', 'Microsoft.Graph.Users'
+)) {
+    Import-Module -Name $graphModule -ErrorAction Stop
+}
+
 # Prefer the copy sitting next to this script (the downloaded/forked
 # source, which has the branding fixes) over whatever else might be on
 # the module path - falls back to a plain by-name Import-Module only if
