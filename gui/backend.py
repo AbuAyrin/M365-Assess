@@ -7,15 +7,20 @@ calls the real Invoke-M365Assessment - no logic is reimplemented here), and
 (c) poll its structured log file for progress instead of parsing console
 text.
 
-Known risk, not yet resolved: launching -UseDeviceCode through a spawned
-subprocess (as this does) is exactly the scenario that produced "error
-occurred when writing to a listener" during the M365-Assessment-Toolkit
-work in this same project - a different tool, but the same underlying
-"PowerShell device-code flow needs a console the spawning process didn't
-give it" class of problem. App-registration auth doesn't touch that code
-path at all (no interactive/device console involved), so it's the
-recommended auth method through this GUI until device code is confirmed
-working here specifically.
+Confirmed cause of a device-code/interactive sign-in issue (live-tested,
+not theoretical): this backend launches pwsh via pythonw, which starts
+with no console at all. Microsoft's own sign-in code in Connect-MgGraph
+detects that and treats the process as unattended, cutting its wait for
+sign-in to ~2 minutes instead of the normal ~15 - so it can time out even
+after a real sign-in completes elsewhere. Confirmed by: the exact same
+sign-in worked when run directly in an open PowerShell window, and this
+tool's own docs (docs/user/AUTHENTICATION.md) describe the same
+no-console-detected behavior for a different, unrelated purpose.
+_run_assessment below now launches with CREATE_NO_WINDOW (a real console
+object that's never shown on screen) as an attempted fix - not verified
+against a live tenant from here. App-registration auth sidesteps this
+entirely (no sign-in wait to cut short) and is the dependable fallback
+if the console fix doesn't hold up.
 """
 from flask import Flask, request, jsonify, send_file, Response
 from flask_cors import CORS
@@ -123,9 +128,21 @@ def _run_assessment(run_id, params):
         _runs[run_id].update({"status": "running", "cmd": " ".join(cmd)})
 
     try:
+        # CREATE_NO_WINDOW: give the child process a real console object
+        # (so anything checking "is a console attached" finds one) without
+        # ever showing it on screen. Attempted fix for the confirmed cause
+        # of device-code/interactive sign-in timing out through this GUI -
+        # launched via pythonw with no console at all, Microsoft's own
+        # sign-in code treats the process as unattended and cuts its wait
+        # short (~2 min instead of ~15), even after a real sign-in
+        # completes. Not verified against a live tenant from here - if
+        # sign-in still times out after this, the console isn't what
+        # Microsoft's check is keying off and App Registration is the
+        # dependable path.
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         proc = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, bufsize=1
+            text=True, bufsize=1, creationflags=creationflags
         )
         with _runs_lock:
             _runs[run_id]["pid"] = proc.pid
