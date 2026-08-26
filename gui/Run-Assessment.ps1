@@ -44,6 +44,20 @@ param(
 $ErrorActionPreference = 'Stop'
 
 Write-Host "GUI_BRIDGE: importing M365-Assess module"
+
+# Windows PowerShell 5.1 and PowerShell 7 keep separate module folders.
+# Live-confirmed on a real machine: Microsoft.Graph.* was installed only
+# under the old Windows PowerShell 5.1 folder (from before PowerShell 7
+# was set up for this project), so PowerShell 7's own Import-Module can't
+# see it by name at all ("no valid module file was found in any module
+# directory"). Add that folder to this process's own search path - does
+# not touch the system-wide setting, only what this one script can see.
+$legacyModules = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'WindowsPowerShell\Modules'
+if ((Test-Path -Path $legacyModules -PathType Container) -and ($env:PSModulePath -notlike "*$legacyModules*")) {
+    $env:PSModulePath = "$legacyModules;$env:PSModulePath"
+    Write-Host "GUI_BRIDGE: added legacy module folder to search path: $legacyModules"
+}
+
 # Load the Graph sub-modules M365-Assess.psd1 lists under RequiredModules
 # by hand first. PowerShell is supposed to auto-load these on its own
 # when importing the manifest, but that auto-load isn't reliable when the
